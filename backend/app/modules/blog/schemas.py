@@ -20,8 +20,12 @@ class PyObjectId(ObjectId):
         return ObjectId(v)
     
     @classmethod
-    def __modify_schema__(cls, field_schema):
-        field_schema.update(type="string")
+    def __get_pydantic_json_schema__(cls, core_schema):
+        from pydantic import GetJsonSchemaHandler
+        # core_schema 是 Pydantic v2 内部 schema，你可以直接修改类型
+        core_schema['type'] = 'string'
+        return core_schema
+
 
 
 class BlogBase(BaseModel):
