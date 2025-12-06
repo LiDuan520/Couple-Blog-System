@@ -20,8 +20,18 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
-        # 防止点击劫持
-        response.headers["Content-Security-Policy"] = "default-src 'self'"
+        # 针对文档页面放宽 CSP，以允许加载 Swagger UI 所需的外部资源与内联脚本
+        path = request.url.path
+        if path in ("/api/docs", "/api/redoc"):
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "img-src 'self' https://fastapi.tiangolo.com data:; "
+                "script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+                "style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; "
+                "font-src 'self' https://cdn.jsdelivr.net;"
+            )
+        else:
+            response.headers["Content-Security-Policy"] = "default-src 'self'"
         return response
 
 

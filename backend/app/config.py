@@ -1,7 +1,7 @@
 """
 应用配置管理
 """
-from pydantic_settings import BaseSettings
+from pydantic import BaseSettings
 from typing import List, Optional
 
 

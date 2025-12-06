@@ -8,23 +8,23 @@ from bson import ObjectId
 
 
 class PyObjectId(ObjectId):
-    """MongoDB ObjectId 的 Pydantic 支持"""
+    """MongoDB ObjectId 的 Pydantic 支持 (Pydantic v1)"""
     @classmethod
     def __get_validators__(cls):
         yield cls.validate
-    
+
     @classmethod
     def validate(cls, v):
-        if not ObjectId.is_valid(v):
-            raise ValueError("Invalid ObjectId")
-        return ObjectId(v)
-    
+        if isinstance(v, ObjectId):
+            return v
+        if isinstance(v, str) and ObjectId.is_valid(v):
+            return ObjectId(v)
+        raise ValueError("Invalid ObjectId")
+
     @classmethod
-    def __get_pydantic_json_schema__(cls, core_schema):
-        from pydantic import GetJsonSchemaHandler
-        # core_schema 是 Pydantic v2 内部 schema，你可以直接修改类型
-        core_schema['type'] = 'string'
-        return core_schema
+    def __modify_schema__(cls, field_schema):
+        # 在生成 OpenAPI/JSON Schema 时把 ObjectId 显示为字符串
+        field_schema.update(type="string")
 
 
 
@@ -51,14 +51,13 @@ class BlogUpdate(BaseModel):
 
 class BlogResponse(BlogBase):
     """博客响应模式"""
-    id: PyObjectId
+    id: str = Field(..., description="博客唯一标识（ObjectId 字符串）")
     author_id: int
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
-        arbitrary_types_allowed = True
         json_encoders = {ObjectId: str}
 
 
