@@ -1,8 +1,12 @@
 fastapi==0.95.2
-uvicorn==0.23.2
+uvicorn[standard]==0.23.2
+gunicorn==21.2.0
 python-dotenv==1.0.0
 
 pydantic==1.10.12
+# pydantic v1 已含 BaseSettings；v2 时改为 pydantic-settings
+# 当前 config.py 已做兼容处理，两版皆可
+pydantic-settings==2.1.0
 
 sqlalchemy==2.0.23
 psycopg2-binary==2.9.9
@@ -14,5 +18,15 @@ redis==5.0.1
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
-alembic==1.12.1
 email-validator==2.1.0
+
+# 数据库迁移
+alembic==1.12.1
+
+# 测试
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2
+mongomock==4.1.2
+mongomock-motor==0.0.21
+fakeredis==2.20.1

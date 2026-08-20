@@ -3,6 +3,7 @@ FastAPI 应用入口
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from app.config import settings
 from app.core.database import connect_to_mongo, close_mongo_connection
@@ -54,8 +55,13 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(ExceptionHandlerMiddleware)
 
+# 静态资源（头像等）
+import os
+os.makedirs(settings.AVATAR_DIR, exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # 注册路由
-app.include_router(api_router, prefix="/api/v1")
+app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/")

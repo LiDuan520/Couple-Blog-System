@@ -4,8 +4,8 @@
 from contextlib import contextmanager
 from typing import Generator, Optional
 from sqlalchemy import create_engine, event
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+# SQLAlchemy 2.0 推荐从 sqlalchemy.orm 导入
+from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from sqlalchemy.pool import QueuePool
 from app.config import settings
 import logging
@@ -78,8 +78,8 @@ async def close_mongo_connection():
 
 
 @contextmanager
-def get_db() -> Generator[Session, None, None]:
-    """数据库会话上下文管理器（自动清理）"""
+def _get_db_ctx() -> Generator[Session, None, None]:
+    """数据库会话上下文管理器（脚本/手动使用）"""
     db: Session = SessionLocal()
     try:
         yield db
@@ -89,4 +89,20 @@ def get_db() -> Generator[Session, None, None]:
         logger.error(f"Database session error: {e}")
         raise
     finally:
-        db.close()  # 确保连接关闭
+        db.close()
+
+
+def get_db() -> Generator[Session, None, None]:
+    """
+    FastAPI 依赖：PostgreSQL 会话。
+    请求成功自动 commit；异常自动 rollback；最终关闭。
+    """
+    db: Session = SessionLocal()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()

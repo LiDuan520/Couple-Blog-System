@@ -53,6 +53,7 @@ class BlogResponse(BlogBase):
     """博客响应模式"""
     id: str = Field(..., description="博客唯一标识（ObjectId 字符串）")
     author_id: int
+    is_deleted: bool = False
     created_at: datetime
     updated_at: datetime
 

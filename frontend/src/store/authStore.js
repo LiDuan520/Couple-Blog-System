@@ -12,14 +12,15 @@ export const useAuthStore = create(
       isAuthenticated: false,
       isLoading: false,
       error: null,
-      
+
       // 登录
-      login: async (credentials) => {
+      login: async ({ username, password, remember_me = false }) => {
         set({ isLoading: true, error: null })
         try {
-          const response = await authAPI.login(credentials)
-          const { access_token, user } = response.data || response
-          
+          const response = await authAPI.login({ username, password, remember_me })
+          const data = response.data || response
+          const { access_token, user } = data
+
           setToken(access_token)
           set({
             user,
@@ -28,8 +29,7 @@ export const useAuthStore = create(
             isLoading: false,
             error: null,
           })
-          
-          return { success: true }
+          return { success: true, data }
         } catch (error) {
           set({
             error: error.message,
@@ -39,14 +39,19 @@ export const useAuthStore = create(
           return { success: false, error: error.message }
         }
       },
-      
+
       // 注册
       register: async (userData) => {
         set({ isLoading: true, error: null })
         try {
-          const response = await authAPI.register(userData)
-          set({ isLoading: false })
-          return { success: true, data: response.data || response }
+          await authAPI.register(userData)
+          // FIX-F-01: 注册成功后自动登录
+          const result = await get().login({
+            username: userData.username,
+            password: userData.password,
+            remember_me: false,
+          })
+          return result
         } catch (error) {
           set({
             error: error.message,
@@ -55,7 +60,7 @@ export const useAuthStore = create(
           return { success: false, error: error.message }
         }
       },
-      
+
       // 登出
       logout: async () => {
         try {
@@ -72,7 +77,7 @@ export const useAuthStore = create(
           })
         }
       },
-      
+
       // 初始化（从本地存储恢复）
       init: async () => {
         const token = getToken()
@@ -88,12 +93,28 @@ export const useAuthStore = create(
           }
         }
       },
-      
+
+      // 修改密码
+      changePassword: async ({ old_password, new_password }) => {
+        set({ isLoading: true, error: null })
+        try {
+          await authAPI.changePassword({ old_password, new_password })
+          set({ isLoading: false })
+          return { success: true }
+        } catch (error) {
+          set({ error: error.message, isLoading: false })
+          return { success: false, error: error.message }
+        }
+      },
+
+      // 更新当前用户（被 profile 页等调用）
+      updateUser: (userData) => set({ user: { ...(get().user || {}), ...userData } }),
+
       // 清除错误
       clearError: () => set({ error: null }),
     }),
     {
-      name: 'auth-storage', // 本地存储 key
+      name: 'auth-storage',
       partialize: (state) => ({
         token: state.token,
         user: state.user,
@@ -102,4 +123,3 @@ export const useAuthStore = create(
     }
   )
 )
-

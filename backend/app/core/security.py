@@ -46,3 +46,11 @@ def verify_token(token: str) -> Optional[dict]:
         return payload
     except JWTError:
         return None
+
+
+def decode_token_payload(token: str) -> Optional[dict]:
+    """解码 token 原始 payload（不验证签名，仅在受信环境使用）"""
+    try:
+        return jwt.get_unverified_claims(token)
+    except JWTError:
+        return None

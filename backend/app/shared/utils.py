@@ -1,5 +1,5 @@
 """工具函数"""
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 
@@ -12,3 +12,7 @@ def sanitize_dict(data: Dict[str, Any]) -> Dict[str, Any]:
     """清理字典中的 None 值"""
     return {k: v for k, v in data.items() if v is not None}
 
+
+def now_utc() -> datetime:
+    """统一的 UTC 当前时间（带 tzinfo）"""
+    return datetime.now(timezone.utc)
