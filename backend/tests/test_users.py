@@ -63,7 +63,7 @@ class TestUpdateProfile:
             json={"email": other_user.email},
         )
         assert resp.status_code == 422
-        assert "Email" in resp.json()["detail"]
+        assert "Email" in resp.json()["error"]["message"]
 
     def test_update_email_self(self, client, auth_headers):
         """把自己的邮箱设成自己的邮箱应当不报错（幂等）"""

@@ -53,6 +53,8 @@ class BlogResponse(BlogBase):
     """博客响应模式"""
     id: str = Field(..., description="博客唯一标识（ObjectId 字符串）")
     author_id: int
+    couple_id: Optional[int] = None  # v2 新增：所属 couple（v1 老数据为 None）
+    event_date: Optional[datetime] = None  # v2 新增：事件日期（用于时间轴排序）
     is_deleted: bool = False
     created_at: datetime
     updated_at: datetime

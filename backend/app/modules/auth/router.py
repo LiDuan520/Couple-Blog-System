@@ -115,6 +115,8 @@ async def change_password(
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
     current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
-    """获取当前用户信息"""
-    return current_user
+    """获取当前用户信息（v2：含 couple 字段）"""
+    from app.modules.auth.service import _enrich_user_with_couple
+    return _enrich_user_with_couple(db, current_user)

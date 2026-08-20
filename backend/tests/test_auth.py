@@ -55,7 +55,7 @@ class TestRegister:
             "password": "Other1234",
         })
         assert resp.status_code == 422
-        assert "Username" in resp.json()["detail"]
+        assert "Username" in resp.json()["error"]["message"]
 
     def test_register_duplicate_email(self, client, make_user):
         make_user(username="alice", email="alice@test.com")
@@ -65,7 +65,7 @@ class TestRegister:
             "password": "Other1234",
         })
         assert resp.status_code == 422
-        assert "Email" in resp.json()["detail"]
+        assert "Email" in resp.json()["error"]["message"]
 
     @pytest.mark.parametrize("payload,reason", [
         ({"username": "ab", "email": "a@b.com", "password": "Abc12345"},

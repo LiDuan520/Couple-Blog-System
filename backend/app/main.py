@@ -1,14 +1,16 @@
 """
 FastAPI 应用入口
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from app.config import settings
 from app.core.database import connect_to_mongo, close_mongo_connection
 from app.core.redis_client import init_redis, close_redis
 from app.core.logging_config import setup_logging
+from app.core.exceptions import BaseAPIException
 from app.core.middleware import (
     SecurityHeadersMiddleware,
     RequestLoggingMiddleware,
@@ -41,6 +43,22 @@ app = FastAPI(
     lifespan=lifespan  # 生命周期管理
 )
 
+
+# 全局异常处理：让 BaseAPIException 走统一的 {"error": {...}} 格式
+# （FastAPI 默认对 HTTPException 返回 {"detail": ...}，我们覆盖为 {"error": ...}）
+@app.exception_handler(BaseAPIException)
+async def base_api_exception_handler(request: Request, exc: BaseAPIException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": {
+                "code": exc.error_code,
+                "message": exc.detail,
+            }
+        },
+        headers=exc.headers,
+    )
+
 # CORS 配置
 app.add_middleware(
     CORSMiddleware,
@@ -58,6 +76,7 @@ app.add_middleware(ExceptionHandlerMiddleware)
 # 静态资源（头像等）
 import os
 os.makedirs(settings.AVATAR_DIR, exist_ok=True)
+os.makedirs("static/photos", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 注册路由

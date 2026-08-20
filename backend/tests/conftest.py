@@ -110,6 +110,9 @@ def engine():
     )
     from app.core.database import Base
     from app.modules.auth.models import User  # noqa: F401
+    from app.modules.couple.models import Couple, CoupleInvite  # noqa: F401
+    from app.modules.anniversary.models import Anniversary  # noqa: F401
+    from app.modules.album.models import Album, Photo  # noqa: F401
     Base.metadata.create_all(eng)
     yield eng
     eng.dispose()

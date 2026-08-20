@@ -5,13 +5,41 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from datetime import timedelta
 from app.modules.auth.repository import AuthRepository
-from app.modules.auth.schemas import UserCreate, UserLogin
+from app.modules.auth.schemas import UserCreate, UserLogin, UserResponse
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.core.validators import InputValidator
 from app.core.exceptions import AuthenticationError, ValidationError
 from app.core.redis_client import get_redis
 from app.core.logging_config import audit_log
 from app.config import settings
+
+
+def _enrich_user_with_couple(db: Session, user) -> UserResponse:
+    """把 user 转 UserResponse，并填充 couple 字段（如果已绑定）"""
+    resp = UserResponse.model_validate(user)
+    if user.couple_id is not None:
+        from app.modules.couple.models import Couple
+        from app.modules.auth.models import User
+        couple = db.query(Couple).filter(Couple.id == user.couple_id).first()
+        if couple and couple.is_active:
+            partner_id = couple.user_b_id if couple.user_a_id == user.id else couple.user_a_id
+            partner = db.query(User).filter(User.id == partner_id).first()
+            if partner:
+                from datetime import date
+                from app.modules.auth.schemas import _PartnerBriefForAuth, _CoupleBriefForAuth
+                today_days = max(0, (date.today() - couple.anniversary_date).days)
+                resp.couple = _CoupleBriefForAuth(
+                    id=couple.id,
+                    anniversary_date=couple.anniversary_date,
+                    days_together=today_days,
+                    partner=_PartnerBriefForAuth(
+                        id=partner.id,
+                        username=partner.username,
+                        nickname=partner.nickname,
+                        avatar=partner.avatar,
+                    ),
+                )
+    return resp
 
 
 class AuthService:
@@ -85,13 +113,13 @@ class AuthService:
         )
 
         audit_log("auth.login.success", user_id=user.id, username=user.username)
-        # FIX: 之前只返回 id/username/email/nickname，缺少 is_active/created_at
-        # 导致 /login-json 报 ResponseValidationError（500）
+        # v2: 响应中填充 couple 字段
+        user_resp = _enrich_user_with_couple(self.db, user)
         return {
             "access_token": access_token,
             "token_type": "bearer",
             "expires_in": expire_minutes * 60,
-            "user": user,  # 直接返回 User 对象，由 Pydantic 序列化为 UserResponse
+            "user": user_resp,
         }
 
     def logout(self, user_id: int, token: str) -> None:
