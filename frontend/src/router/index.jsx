@@ -9,6 +9,14 @@ import BlogList from '../pages/BlogList/BlogList'
 import BlogDetail from '../pages/BlogDetail/BlogDetail'
 import BlogEditor from '../pages/BlogEditor/BlogEditor'
 
+// v2 新页面
+import Couple from '../pages/Couple/Couple'
+import Anniversaries from '../pages/Anniversaries/Anniversaries'
+import Albums from '../pages/Albums/Albums'
+import Timeline from '../pages/Timeline/Timeline'
+
+import AppLayout from '../components/layout/AppLayout'
+
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated } = useAuthStore()
   if (!isAuthenticated) return <Navigate to="/login" replace />
@@ -21,24 +29,18 @@ function Router() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      <Route path="/" element={
-        <ProtectedRoute><Dashboard /></ProtectedRoute>
-      } />
-      <Route path="/profile" element={
-        <ProtectedRoute><Profile /></ProtectedRoute>
-      } />
-      <Route path="/blogs" element={
-        <ProtectedRoute><BlogList /></ProtectedRoute>
-      } />
-      <Route path="/blogs/new" element={
-        <ProtectedRoute><BlogEditor /></ProtectedRoute>
-      } />
-      <Route path="/blogs/:id" element={
-        <ProtectedRoute><BlogDetail /></ProtectedRoute>
-      } />
-      <Route path="/blogs/:id/edit" element={
-        <ProtectedRoute><BlogEditor /></ProtectedRoute>
-      } />
+      <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/couple" element={<Couple />} />
+        <Route path="/blogs" element={<BlogList />} />
+        <Route path="/blogs/new" element={<BlogEditor />} />
+        <Route path="/blogs/:id" element={<BlogDetail />} />
+        <Route path="/blogs/:id/edit" element={<BlogEditor />} />
+        <Route path="/anniversaries" element={<Anniversaries />} />
+        <Route path="/albums" element={<Albums />} />
+        <Route path="/timeline" element={<Timeline />} />
+      </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

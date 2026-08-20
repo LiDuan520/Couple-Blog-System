@@ -1,233 +1,152 @@
-import { useState, useEffect } from 'react'
+/**
+ * 博客列表 - 粉紫少女风
+ */
+import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  Box, Card, CardBody, Heading, Text, HStack, VStack, Button, Tag,
+  Input, InputGroup, InputLeftElement, IconButton, Wrap, WrapItem,
+  useToast, SimpleGrid, Avatar, Flex, Icon,
+} from '@chakra-ui/react'
+import { FiSearch, FiPlus, FiEdit2, FiTrash2, FiEye, FiBookOpen } from 'react-icons/fi'
+import dayjs from 'dayjs'
+import PageContainer from '../../components/layout/PageContainer'
+import { LoadingState, EmptyState } from '../../components/common/States'
 import { blogAPI } from '../../api/modules/blog.api'
 import { useAuthStore } from '../../store/authStore'
-import { colors } from '../../utils/styles'
 
-function BlogCard({ blog, onClick }) {
+function BlogCard({ blog, onOpen, onEdit, onDelete, canEdit }) {
   return (
-    <div
-      onClick={onClick}
-      style={{
-        padding: '1.25rem 1.5rem',
-        background: '#fff',
-        borderRadius: 8,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-        cursor: 'pointer',
-        transition: 'transform 0.15s, box-shadow 0.15s',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-2px)'
-        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'translateY(0)'
-        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.08)'
-      }}
+    <Card
+      cursor="pointer" onClick={onOpen}
+      _hover={{ transform: 'translateY(-4px)', boxShadow: '0 12px 32px rgba(196,69,105,0.15)' }}
+      transition="all 0.2s" h="full"
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-        <h3 style={{ margin: 0, color: colors.text, fontSize: '1.15rem' }}>{blog.title}</h3>
-        {blog.is_public && (
-          <span style={{ fontSize: 12, color: colors.success, padding: '2px 8px', background: '#e6f7eb', borderRadius: 12 }}>
-            公开
-          </span>
+      <CardBody>
+        <HStack mb={2} align="flex-start">
+          <Box flex={1} minW={0}>
+            <HStack mb={1}>
+              {blog.is_public && (
+                <Tag size="sm" colorScheme="green" borderRadius="full">公开</Tag>
+              )}
+              {blog.couple_id && (
+                <Tag size="sm" colorScheme="pink" borderRadius="full">💕 情侣</Tag>
+              )}
+            </HStack>
+            <Heading size="md" noOfLines={1}>{blog.title}</Heading>
+          </Box>
+          {canEdit && (
+            <HStack spacing={1} onClick={(e) => e.stopPropagation()}>
+              <IconButton size="sm" variant="ghost" icon={<FiEdit2 />}
+                aria-label="edit" onClick={onEdit} />
+              <IconButton size="sm" variant="ghost" colorScheme="red"
+                icon={<FiTrash2 />} aria-label="delete" onClick={onDelete} />
+            </HStack>
+          )}
+        </HStack>
+        <Text color="gray.600" fontSize="sm" noOfLines={3} minH="60px">
+          {blog.content}
+        </Text>
+        {blog.tags?.length > 0 && (
+          <Wrap mt={3} spacing={2}>
+            {blog.tags.map((t) => (
+              <WrapItem key={t}>
+                <Tag size="sm" variant="subtle" colorScheme="pink">#{t}</Tag>
+              </WrapItem>
+            ))}
+          </Wrap>
         )}
-      </div>
-      <p style={{ color: colors.textMuted, marginTop: 8, marginBottom: 8, fontSize: '0.95rem' }}>
-        {blog.content.slice(0, 120)}{blog.content.length > 120 ? '…' : ''}
-      </p>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {(blog.tags || []).map((t) => (
-            <span key={t} style={{ fontSize: 12, padding: '2px 8px', background: '#f0f0f0', borderRadius: 4, color: colors.textMuted }}>
-              #{t}
-            </span>
-          ))}
-        </div>
-        <span style={{ fontSize: 12, color: colors.textMuted }}>
-          {new Date(blog.created_at).toLocaleString('zh-CN')}
-        </span>
-      </div>
-    </div>
+        <HStack mt={3} fontSize="xs" color="gray.400" justify="space-between">
+          <Text>{dayjs(blog.created_at).format('YYYY-MM-DD')}</Text>
+          <Text>{blog.content.length} 字</Text>
+        </HStack>
+      </CardBody>
+    </Card>
   )
 }
 
-function BlogList() {
+export default function BlogList() {
   const navigate = useNavigate()
+  const toast = useToast()
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
-  const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
-  const [tag, setTag] = useState('')
-  const [searchInput, setSearchInput] = useState('')
+  const [page, setPage] = useState(1)
+  const pageSize = 12
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['blogs', { page, search, tag }],
-    queryFn: async () => {
-      const params = { page, page_size: 10 }
-      if (search) params.search = search
-      if (tag) params.tag = tag
-      const res = await blogAPI.getBlogs(params)
-      return res.data || res
+  const { data, isLoading } = useQuery({
+    queryKey: ['blogs', { search, page, pageSize }],
+    queryFn: () => blogAPI.getBlogs({ search, page, page_size: pageSize }),
+  })
+  const payload = data?.data || data
+  const items = payload?.items || []
+  const totalPages = payload?.total_pages || 1
+
+  const delMut = useMutation({
+    mutationFn: (id) => blogAPI.deleteBlog(id),
+    onSuccess: () => {
+      toast({ status: 'success', title: '已删除' })
+      queryClient.invalidateQueries({ queryKey: ['blogs'] })
     },
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => blogAPI.deleteBlog(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['blogs'] }),
-  })
-
-  const handleSearch = () => {
-    setPage(1)
-    setSearch(searchInput)
-  }
-
-  const handleDelete = async (id) => {
-    if (!window.confirm('确定要删除这篇博客吗？')) return
-    try {
-      await deleteMutation.mutateAsync(id)
-    } catch (e) {
-      alert('删除失败: ' + e.message)
-    }
-  }
-
-  // 从所有博客聚合出唯一标签列表
-  const allTags = Array.from(
-    new Set((data?.items || []).flatMap((b) => b.tags || []))
-  )
-
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: '2rem 1rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h1 style={{ margin: 0 }}>我的博客</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Link to="/profile" style={{ padding: '0.5rem 1rem', color: colors.primary, textDecoration: 'none' }}>
-            {user?.nickname || user?.username}
-          </Link>
-          <button
-            onClick={() => navigate('/blogs/new')}
-            style={{
-              padding: '0.5rem 1rem', background: colors.primary, color: 'white',
-              border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: '0.95rem',
-            }}
-          >
-            ＋ 新建博客
-          </button>
-        </div>
-      </div>
-
-      <div style={{
-        display: 'flex', gap: 8, marginBottom: '1.5rem', flexWrap: 'wrap',
-        padding: '1rem', background: '#fff', borderRadius: 8,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-      }}>
-        <input
-          type="text" placeholder="搜索标题或内容…"
-          value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          style={{
-            flex: 1, minWidth: 200, padding: '0.5rem 0.75rem',
-            border: `1px solid ${colors.border}`, borderRadius: 4, fontSize: '0.95rem',
-          }}
+    <PageContainer
+      title="博客 ✍️"
+      subtitle={user?.couple ? '你们共同的记录' : '我的记录'}
+      actions={
+        <Button as={Link} to="/blogs/new" colorScheme="brand" leftIcon={<FiPlus />}>
+          写博客
+        </Button>
+      }
+    >
+      <InputGroup mb={6} maxW="md">
+        <InputLeftElement><FiSearch color="#999" /></InputLeftElement>
+        <Input
+          placeholder="搜索标题或内容"
+          value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+          bg="white"
         />
-        <button onClick={handleSearch} style={{
-          padding: '0.5rem 1rem', background: colors.primary, color: 'white',
-          border: 'none', borderRadius: 4, cursor: 'pointer',
-        }}>搜索</button>
-        {tag && (
-          <button onClick={() => { setTag(''); setPage(1) }} style={{
-            padding: '0.5rem 1rem', background: '#6c757d', color: 'white',
-            border: 'none', borderRadius: 4, cursor: 'pointer',
-          }}>
-            清除标签 #{tag}
-          </button>
-        )}
-      </div>
+      </InputGroup>
 
-      {allTags.length > 0 && (
-        <div style={{ marginBottom: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {allTags.map((t) => (
-            <button
-              key={t}
-              onClick={() => { setTag(t); setPage(1) }}
-              style={{
-                fontSize: 12, padding: '4px 10px',
-                background: tag === t ? colors.primary : '#fff',
-                color: tag === t ? 'white' : colors.text,
-                border: `1px solid ${tag === t ? colors.primary : colors.border}`,
-                borderRadius: 12, cursor: 'pointer',
-              }}
-            >
-              #{t}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {isLoading && <p style={{ textAlign: 'center', color: colors.textMuted }}>加载中…</p>}
-      {error && <p style={{ color: colors.danger }}>加载失败: {error.message}</p>}
-
-      {!isLoading && (data?.items?.length ?? 0) === 0 && (
-        <div style={{
-          textAlign: 'center', padding: '3rem', background: '#fff',
-          borderRadius: 8, color: colors.textMuted,
-        }}>
-          <p>还没有博客，<Link to="/blogs/new" style={{ color: colors.primary }}>写第一篇</Link>吧 ✍️</p>
-        </div>
-      )}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {(data?.items || []).map((blog) => (
-          <div key={blog.id} style={{ position: 'relative' }}>
-            <BlogCard blog={blog} onClick={() => navigate(`/blogs/${blog.id}`)} />
-            <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 4 }}>
-              <button
-                onClick={(e) => { e.stopPropagation(); navigate(`/blogs/${blog.id}/edit`) }}
-                title="编辑"
-                style={{
-                  padding: '2px 8px', fontSize: 12, background: '#f0f0f0',
-                  border: 'none', borderRadius: 4, cursor: 'pointer', color: colors.textMuted,
+      {isLoading ? (
+        <LoadingState />
+      ) : items.length === 0 ? (
+        <EmptyState
+          icon="📓"
+          title="还没有博客"
+          description="写第一篇记录吧"
+          actionLabel="开始写"
+          onAction={() => navigate('/blogs/new')}
+        />
+      ) : (
+        <>
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={5}>
+            {items.map((b) => (
+              <BlogCard
+                key={b.id} blog={b}
+                onOpen={() => navigate(`/blogs/${b.id}`)}
+                onEdit={() => navigate(`/blogs/${b.id}/edit`)}
+                onDelete={() => {
+                  if (window.confirm(`删除「${b.title}」？`)) delMut.mutate(b.id)
                 }}
-              >
-                编辑
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); handleDelete(blog.id) }}
-                title="删除"
-                style={{
-                  padding: '2px 8px', fontSize: 12, background: '#fde8e8',
-                  border: 'none', borderRadius: 4, cursor: 'pointer', color: colors.danger,
-                }}
-              >
-                删除
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+                canEdit={b.author_id === user?.id}
+              />
+            ))}
+          </SimpleGrid>
 
-      {(data?.total_pages ?? 0) > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: '1.5rem' }}>
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-            style={{ padding: '0.4rem 0.8rem', border: `1px solid ${colors.border}`, background: '#fff', borderRadius: 4, cursor: page === 1 ? 'not-allowed' : 'pointer' }}
-          >
-            上一页
-          </button>
-          <span style={{ padding: '0.4rem 0.8rem', color: colors.textMuted }}>
-            {page} / {data.total_pages}
-          </span>
-          <button
-            onClick={() => setPage((p) => Math.min(data.total_pages, p + 1))} disabled={page >= data.total_pages}
-            style={{ padding: '0.4rem 0.8rem', border: `1px solid ${colors.border}`, background: '#fff', borderRadius: 4, cursor: page >= data.total_pages ? 'not-allowed' : 'pointer' }}
-          >
-            下一页
-          </button>
-        </div>
+          {totalPages > 1 && (
+            <HStack justify="center" mt={6} spacing={2}>
+              <Button size="sm" isDisabled={page <= 1}
+                onClick={() => setPage(page - 1)}>上一页</Button>
+              <Text fontSize="sm" color="gray.500">{page} / {totalPages}</Text>
+              <Button size="sm" isDisabled={page >= totalPages}
+                onClick={() => setPage(page + 1)}>下一页</Button>
+            </HStack>
+          )}
+        </>
       )}
-    </div>
+    </PageContainer>
   )
 }
-
-export default BlogList

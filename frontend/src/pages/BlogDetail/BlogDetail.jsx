@@ -1,17 +1,28 @@
+/**
+ * 博客详情 - 粉紫少女风
+ */
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  Box, Card, CardBody, Heading, Text, HStack, VStack, Button, Tag,
+  Wrap, WrapItem, useToast, Divider, IconButton,
+} from '@chakra-ui/react'
+import { FiArrowLeft, FiEdit2, FiTrash2 } from 'react-icons/fi'
+import dayjs from 'dayjs'
+import PageContainer from '../../components/layout/PageContainer'
+import { LoadingState, EmptyState } from '../../components/common/States'
 import { blogAPI } from '../../api/modules/blog.api'
 import { useAuthStore } from '../../store/authStore'
 import { MarkdownView } from '../../utils/markdown'
-import { colors } from '../../utils/styles'
 
 function BlogDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const toast = useToast()
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
 
-  const { data: blog, isLoading, error } = useQuery({
+  const { data: blog, isLoading, isError } = useQuery({
     queryKey: ['blog', id],
     queryFn: async () => {
       const res = await blogAPI.getBlog(id)
@@ -23,90 +34,84 @@ function BlogDetail() {
   const deleteMutation = useMutation({
     mutationFn: () => blogAPI.deleteBlog(id),
     onSuccess: () => {
+      toast({ status: 'success', title: '已删除' })
       queryClient.invalidateQueries({ queryKey: ['blogs'] })
       navigate('/blogs')
     },
   })
 
-  const handleDelete = () => {
-    if (window.confirm('确定要删除这篇博客吗？此操作不可恢复')) {
-      deleteMutation.mutate()
-    }
-  }
-
-  if (isLoading) return <p style={{ textAlign: 'center', padding: '3rem' }}>加载中…</p>
-  if (error) return <p style={{ color: colors.danger, padding: '2rem' }}>加载失败: {error.message}</p>
+  if (isLoading) return <LoadingState />
+  if (isError) return (
+    <EmptyState icon="😅" title="加载失败"
+      actionLabel="返回列表" onAction={() => navigate('/blogs')} />
+  )
   if (!blog) return null
 
-  return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: '2rem 1rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <Link to="/blogs" style={{ color: colors.primary, textDecoration: 'none' }}>← 返回列表</Link>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            onClick={() => navigate(`/blogs/${id}/edit`)}
-            style={{
-              padding: '0.4rem 1rem', background: '#fff',
-              border: `1px solid ${colors.primary}`, color: colors.primary,
-              borderRadius: 4, cursor: 'pointer',
-            }}
-          >
-            编辑
-          </button>
-          <button
-            onClick={handleDelete}
-            disabled={deleteMutation.isLoading}
-            style={{
-              padding: '0.4rem 1rem', background: colors.danger, color: 'white',
-              border: 'none', borderRadius: 4,
-              cursor: deleteMutation.isLoading ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {deleteMutation.isLoading ? '删除中…' : '删除'}
-          </button>
-        </div>
-      </div>
+  const canEdit = blog.author_id === user?.id
 
-      <article style={{
-        background: '#fff', padding: '2rem', borderRadius: 8,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-      }}>
-        <h1 style={{ marginTop: 0, color: colors.text }}>{blog.title}</h1>
-        <div style={{
-          display: 'flex', gap: 12, alignItems: 'center',
-          color: colors.textMuted, fontSize: '0.9rem', marginBottom: '1.5rem',
-        }}>
-          <span>{user?.nickname || user?.username}</span>
-          <span>·</span>
-          <span>{new Date(blog.created_at).toLocaleString('zh-CN')}</span>
-          {blog.updated_at && blog.updated_at !== blog.created_at && (
+  return (
+    <PageContainer
+      maxW="3xl"
+      actions={
+        <HStack>
+          <Button as={Link} to="/blogs" variant="ghost" leftIcon={<FiArrowLeft />}>
+            返回
+          </Button>
+          {canEdit && (
             <>
-              <span>·</span>
-              <span>更新于 {new Date(blog.updated_at).toLocaleString('zh-CN')}</span>
+              <Button leftIcon={<FiEdit2 />} colorScheme="brand" variant="outline"
+                onClick={() => navigate(`/blogs/${id}/edit`)}>
+                编辑
+              </Button>
+              <Button leftIcon={<FiTrash2 />} colorScheme="red"
+                onClick={() => {
+                  if (window.confirm('确定要删除这篇博客吗？')) deleteMutation.mutate()
+                }}
+                isLoading={deleteMutation.isPending}>
+                删除
+              </Button>
             </>
           )}
-          {blog.is_public ? (
-            <span style={{ marginLeft: 'auto', color: colors.success }}>● 公开</span>
-          ) : (
-            <span style={{ marginLeft: 'auto', color: colors.textMuted }}>● 私密</span>
+        </HStack>
+      }
+    >
+      <Card>
+        <CardBody>
+          <HStack mb={3} flexWrap="wrap">
+            {blog.is_public && (
+              <Tag size="sm" colorScheme="green" borderRadius="full">公开</Tag>
+            )}
+            {blog.couple_id && (
+              <Tag size="sm" colorScheme="pink" borderRadius="full">💕 情侣</Tag>
+            )}
+            <Text fontSize="sm" color="gray.500" ml="auto">
+              {dayjs(blog.created_at).format('YYYY-MM-DD HH:mm')}
+            </Text>
+          </HStack>
+
+          <Heading size="xl" mb={4}
+            bgGradient="linear(to-r, brand.500, purple.500)" bgClip="text">
+            {blog.title}
+          </Heading>
+
+          {blog.tags?.length > 0 && (
+            <Wrap mb={4} spacing={2}>
+              {blog.tags.map((t) => (
+                <WrapItem key={t}>
+                  <Tag size="sm" colorScheme="pink" variant="subtle">#{t}</Tag>
+                </WrapItem>
+              ))}
+            </Wrap>
           )}
-        </div>
-        {(blog.tags || []).length > 0 && (
-          <div style={{ marginBottom: '1.5rem', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {blog.tags.map((t) => (
-              <span key={t} style={{
-                fontSize: 12, padding: '2px 10px', background: '#f0f0f0',
-                borderRadius: 12, color: colors.textMuted,
-              }}>
-                #{t}
-              </span>
-            ))}
-          </div>
-        )}
-        <hr style={{ border: 'none', borderTop: `1px solid ${colors.border}`, margin: '1.5rem 0' }} />
-        <MarkdownView source={blog.content} />
-      </article>
-    </div>
+
+          <Divider mb={6} borderColor="brand.100" />
+
+          <Box className="markdown-body">
+            <MarkdownView source={blog.content} />
+          </Box>
+        </CardBody>
+      </Card>
+    </PageContainer>
   )
 }
 

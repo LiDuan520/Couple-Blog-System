@@ -9,6 +9,7 @@ export const useAuthStore = create(
       // 状态
       user: null,
       token: null,
+      couple: null,  // v2: 当前用户的 couple 简报（含 partner/anniversary_date/days_together）
       isAuthenticated: false,
       isLoading: false,
       error: null,
@@ -24,6 +25,7 @@ export const useAuthStore = create(
           setToken(access_token)
           set({
             user,
+            couple: user?.couple || null,
             token: access_token,
             isAuthenticated: true,
             isLoading: false,
@@ -72,6 +74,7 @@ export const useAuthStore = create(
           set({
             user: null,
             token: null,
+            couple: null,
             isAuthenticated: false,
             error: null,
           })
@@ -85,7 +88,11 @@ export const useAuthStore = create(
           set({ token, isAuthenticated: true })
           try {
             const user = await authAPI.getCurrentUser()
-            set({ user: user.data || user, isAuthenticated: true })
+            set({
+              user: user.data || user,
+              couple: (user.data || user)?.couple || null,
+              isAuthenticated: true,
+            })
           } catch (error) {
             // Token 无效，清除
             removeToken()
@@ -93,6 +100,17 @@ export const useAuthStore = create(
           }
         }
       },
+
+      // 刷新 couple 简报（被 Couple 页等调用）
+      refreshCouple: () => {
+        return authAPI.getCurrentUser().then((res) => {
+          const u = res.data || res
+          set({ user: u, couple: u?.couple || null })
+        })
+      },
+
+      // 标记已绑定
+      setCouple: (couple) => set({ couple }),
 
       // 修改密码
       changePassword: async ({ old_password, new_password }) => {
@@ -118,6 +136,7 @@ export const useAuthStore = create(
       partialize: (state) => ({
         token: state.token,
         user: state.user,
+        couple: state.couple,
         isAuthenticated: state.isAuthenticated,
       }),
     }
