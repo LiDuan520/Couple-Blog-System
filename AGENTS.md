@@ -270,7 +270,140 @@ class UserResponse(BaseModel):
 
 ---
 
-## 8. 引用文档
+## 8. Git 使用标准
+
+### 8.1 分支策略
+
+```
+main          ← 生产稳定分支（只接受来自 develop 的 PR，不允许直接 push）
+develop       ← 集成分支（所有功能分支 merge 到此）
+trae/agent-*  ← AI 代理自动创建的工作分支（从 develop 切出）
+feat/<name>   ← 人工功能分支（从 develop 切出）
+fix/<name>    ← 缺陷修复分支（从 develop 切出）
+docs/<name>   ← 纯文档分支
+chore/<name>  ← 构建 / 依赖 / 配置变更分支
+```
+
+- **AI 代理**工作分支命名固定使用 `trae/agent-<任务ID>` 格式。
+- **所有分支**均从 `develop` 创建；**禁止**直接往 `main` 推代码。
+- 完成后通过 PR → `develop`，经过 CI 检查后合并。
+
+### 8.2 Commit Message 规范
+
+遵循 **Conventional Commits**（<https://www.conventionalcommits.org>）。
+
+**格式**
+
+```
+<type>(<scope>): <subject>
+
+[可选 body]
+
+[可选 footer]
+```
+
+**type 枚举**
+
+| type | 适用场景 |
+|---|---|
+| `feat` | 新增功能 |
+| `fix` | 缺陷修复 |
+| `refactor` | 重构（不改变外部行为） |
+| `test` | 新增 / 修改测试 |
+| `docs` | 文档变更 |
+| `chore` | 构建脚本 / 依赖 / 工具链 |
+| `style` | 仅格式变更（空格、换行，无逻辑改动） |
+| `perf` | 性能优化 |
+| `ci` | CI/CD 配置变更 |
+
+**scope 约定（本项目）**
+
+| scope | 对应位置 |
+|---|---|
+| `auth` | backend/modules/auth |
+| `couple` | backend/modules/couple |
+| `anniversary` | backend/modules/anniversary |
+| `album` | backend/modules/album |
+| `timeline` | backend/modules/timeline |
+| `dashboard` | backend/modules/dashboard |
+| `blog` | backend/modules/blog |
+| `user` | backend/modules/user |
+| `core` | backend/app/core |
+| `ui` | frontend/src/components 或 styles |
+| `page` | frontend/src/pages |
+| `store` | frontend/src/store |
+| `api` | frontend/src/api |
+| `infra` | docker-compose / nginx / deployment |
+
+**里程碑阶段提交**：在 subject 前加 `Mxx:` 标记，方便追溯。
+
+```
+feat(couple): M11: 邀请码生成与接受绑定接口
+fix(timeline): M12: 修复里程碑日期计算差 1 天
+```
+
+**示例**
+
+```bash
+# 功能
+feat(album): 支持批量上传照片并返回失败列表
+
+# 缺陷
+fix(auth): 修复登出时 token 未加入 Redis 黑名单
+
+# 重构
+refactor(core): 提取 invalidate_couple_caches 统一缓存失效
+
+# 测试
+test(couple): 补充邀请码过期场景用例
+
+# 文档
+docs: 新增 AGENTS.md 并补充 Git 使用标准
+```
+
+### 8.3 提交前检查清单
+
+在执行 `git commit` 前，确认以下项目全部通过：
+
+```bash
+# 后端（有改动时）
+cd backend && pytest -v
+
+# 前端（有改动时）
+cd frontend && npm run lint && npm run build
+```
+
+**AI 代理规则**：未通过上述检查的代码**不得提交**；若测试失败，须先修复再 commit。
+
+### 8.4 PR / Merge 规范
+
+- PR 标题格式与 commit message 相同：`<type>(<scope>): <subject>`。
+- PR body 需包含：**变更摘要**、**测试情况**（已跑的命令 + 结果）、**破坏性变更**（若有）。
+- **Squash merge** 到 develop（保持线性历史），不使用 merge commit。
+- 合并后删除工作分支。
+
+### 8.5 .gitignore 注意事项
+
+以下内容已在 `.gitignore` 中，**禁止**强制提交：
+
+- `backend/venv/`、`backend/.env`（含密钥）
+- `frontend/node_modules/`、`frontend/dist/`
+- `backend/static/photos/`（用户上传图片，不入库）
+- `**/__pycache__/`、`**/*.pyc`
+
+### 8.6 禁止事项
+
+| 禁止 | 原因 |
+|---|---|
+| `git push --force` 到 `main` / `develop` | 会覆盖他人工作 |
+| 提交 `.env` / 密钥 / token | 安全风险 |
+| 提交 `static/photos/` 中的用户图片 | 隐私 + 仓库体积 |
+| 一次 commit 混入多个无关变更 | 难以 review 和回滚 |
+| commit message 使用中文以外的随意描述（如 `fix bug`、`update`） | 无法追溯意图 |
+
+---
+
+## 9. 参考文档
 
 按需阅读，避免重复造轮子：
 
@@ -286,6 +419,6 @@ class UserResponse(BaseModel):
 
 ---
 
-## 9. 一句话准则
+## 10. 一句话准则
 
 > **保持分层、保持兼容、保持简洁。任何修改都先跑测试，任何不熟悉的代码先读再改。**
