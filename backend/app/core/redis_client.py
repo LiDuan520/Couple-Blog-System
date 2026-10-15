@@ -50,3 +50,23 @@ def close_redis():
     if redis_pool:
         redis_pool.disconnect()
         logger.info("Redis connection pool closed")
+
+
+# ---------- 高层工具 ----------
+
+def is_token_blacklisted(token: str) -> bool:
+    """检查 token 是否在登出黑名单中"""
+    return get_redis().exists(f"blacklist:{token}") > 0
+
+
+def rate_limit_incr(key: str, limit: int, window_seconds: int = 60) -> bool:
+    """
+    简单滑动窗口限流：返回 True 表示放行，False 表示超限。
+    key 一般用 `{module}:{action}:{ip_or_user}`。
+    """
+    r = get_redis()
+    full_key = f"ratelimit:{key}"
+    count = r.incr(full_key)
+    if count == 1:
+        r.expire(full_key, window_seconds)
+    return count <= limit
